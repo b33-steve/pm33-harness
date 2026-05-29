@@ -310,9 +310,21 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
 fi
 # ──────────────────────────────────────────────────────────────────────────
 
-git merge --no-ff worktree-agent-{AGENT_ID_A} -m "merge(wave-N): agent-A specialist work"
-git merge --no-ff worktree-agent-{AGENT_ID_B} -m "merge(wave-N): agent-B specialist work"
+./scripts/git/coordinator-merge.sh worktree-agent-{AGENT_ID_A} "merge(wave-N): agent-A specialist work"
+./scripts/git/coordinator-merge.sh worktree-agent-{AGENT_ID_B} "merge(wave-N): agent-B specialist work"
 ```
+
+**Use `coordinator-merge.sh`, NOT raw `git merge`.** The wrapper guards against the silent-file-drop class (MERGE-CONFLICT-DROPS-FILES) where default 3-way merge with a session-log conflict drops non-conflicted ADDS from the merged branch. User reported this pattern 3 times in coordinator sessions before the fix shipped. The wrapper:
+
+1. Runs `git merge --no-commit --no-ff`
+2. Computes the merged branch's full diff vs merge-base
+3. Explicitly stages every file the merged branch touched (additions + modifications + renames)
+4. Handles deletions via `git rm --cached`
+5. Commits with the supplied message
+
+On conflict, the wrapper preserves state and prompts you to resolve → then run `./scripts/git/coordinator-merge.sh --continue` to finalize.
+
+The `.husky/pre-commit` hook also runs `check-merge-file-set.sh` which catches the silent-drop class regardless of which merge command path you used — defense-in-depth.
 
 `--no-ff` preserves the specialist's commit chain in `git log --graph`. Non-overlapping file changes (the normal case) always produce clean merges.
 

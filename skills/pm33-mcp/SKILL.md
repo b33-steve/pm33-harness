@@ -1,6 +1,6 @@
 ---
 name: pm33-mcp
-description: "Conventions for working with PM33 MCP tools (mcp__pm33-staging__*). Invoke BEFORE the first pm33_* tool call in a session. Covers tool routing, the 9 known gaps (5000-char description cap, alignment is keyword-not-objective, MCP intermittent disconnect, etc.), batch-creation patterns, audit-epic UUIDs, and the queue-and-execute pattern for MCP instability. Use when: filing work items, querying backlog, splitting epics, syncing local idea registries, running optimize_priorities, or any task involving pm33-staging MCP tools."
+description: "Conventions for working with PM33 MCP tools (mcp__pm33-staging__*). Invoke BEFORE the first pm33_* tool call in a session. Covers tool routing, the remaining open gaps (5000-char description cap, MCP intermittent disconnect, em-dash/unicode title rejection, etc.), batch-creation patterns, audit-epic UUIDs, and the queue-and-execute pattern for MCP instability. Use when: filing work items, querying backlog, splitting epics, syncing local idea registries, running optimize_priorities, or any task involving pm33-staging MCP tools."
 ---
 
 # PM33 MCP — Working Conventions
@@ -22,8 +22,8 @@ description: "Conventions for working with PM33 MCP tools (mcp__pm33-staging__*)
 | Find an existing epic | `pm33_query_backlog filterTypes=['epic'] mode='full' columns='identity' limit=200` | Anti-duplication step before any `create_work_item` for an epic. |
 | Link epic to feature | `pm33_link_epic` | `(featureId, epicId, tenantId, workspaceId, source)`. |
 | Link epic to objective | `pm33_link_objective` | Shipped 2026-05-28 (PM33-CREATE-PATH-GAPS-001 gap #7 closed). |
-| Run prioritization | `pm33_optimize_priorities` | WSJF/RICE/ICE/MoSCoW. See gap #6: alignment factor is keyword-based, NOT objective binding. |
-| Score strategic alignment | `pm33_score_alignment` | Returns keyword similarity, not real objective match. Treat result as advisory, not authoritative. |
+| Run prioritization | `pm33_optimize_priorities` | WSJF/RICE/ICE/MoSCoW. Alignment factor uses canonical `epic_objective_links` data (per ALIGN-CONSOLIDATE-001, 2026-05-21). |
+| Score strategic alignment | `pm33_score_alignment` | Primary path uses canonical `epic_objective_links` lookup; AI fallback only when no link row exists (returns `score: null` + `objectiveCount: 0` to signal "AI-only, not linked"). Trust the numeric score; do NOT trust the bucket when `score: null`. |
 | Plan a harness | `pm33_plan_harness` | Requires `prdId`, NOT `epicId` (gap #8 — chain via `pm33_generate_prd` first). |
 
 ---
@@ -39,7 +39,7 @@ Captured during 2026-05-26 AGENT-VISIBILITY-001 filing. Status as of 2026-05-28:
 | 3 | No `strategicObjectiveIds: uuid[]` on `create_work_item` | Use `pm33_link_objective` post-create. |
 | 4 | No native `audience`, `agent_sources`, `harness_candidate`, `mockup_url` fields | Stuff into description YAML; planner agents can't currently parse. |
 | 5 | Tool discovery requires human OAuth | First-time agents need `/mcp` interactive flow. |
-| 6 | `pm33_score_alignment` = keyword similarity, NOT objective binding | Returns 0.8 "high" scores even when `objectiveCount: 0`. Don't trust as truth signal. |
+| 6 | ~~`pm33_score_alignment` = keyword similarity, NOT objective binding~~ | ✅ **CLOSED 2026-05-26** (investigation in session ff4cf7ec) — code was refactored by ALIGN-CONSOLIDATE-001 (2026-05-21) + ALIGN-CHAT-PATH-001 (2026-05-22) + CLOSED-LOOP-WORKFLOW-001 B.2 fix. Primary path now reads canonical `epic_objective_links` via `loadCanonicalAlignmentForEpics`. AI fallback only when no link row exists and explicitly returns `score: null` + `objectiveCount: 0` (consumers must differentiate null vs numeric). Numeric scores ARE canonical and trustworthy. |
 | 7 | ~~No `pm33_link_objective` primitive~~ | ✅ **CLOSED 2026-05-28** — use it directly for epic→objective binding. |
 | 8 | `pm33_plan_harness` requires `prdId`, refuses `epicId` | Chain: epic → `pm33_generate_prd` → PRD → `pm33_plan_harness`. |
 | 9 | **MCP intermittent disconnect** | See §5 below — queue-and-execute pattern. |

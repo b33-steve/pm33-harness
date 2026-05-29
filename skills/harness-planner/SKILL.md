@@ -1,6 +1,6 @@
 ---
 name: harness-planner
-description: "Create structured harness projects for complex multi-phase features (16+ hours, 3+ sessions). Use when planning competitive intelligence, major refactors, AI integrations, or security overhauls requiring systematic progress tracking and quality gates. REQUIRES Phase 0 (harness-discovery) and Phase 4 (gauntlet-review) — see workflow below. Every feature in the plan MUST have an explicit (specialist, llmTier, requiredSkills) assignment — no exceptions. Frontend features MUST include `frontend-design:frontend-design`."
+description: "Create structured harness projects for complex multi-phase features (16+ hours, 3+ sessions). Use when planning competitive intelligence, major refactors, AI integrations, or security overhauls requiring systematic progress tracking and quality gates. REQUIRES harness-prep (Phase 0 orchestrator — runs discovery + brainstorming + conditional research) BEFORE this skill, and gauntlet-review (Phase 4) AFTER. Every feature in the plan MUST have an explicit (specialist, llmTier, requiredSkills) assignment — no exceptions. Frontend features MUST include `frontend-design:frontend-design`."
 ---
 
 # Harness Planner Skill
@@ -11,13 +11,13 @@ description: "Create structured harness projects for complex multi-phase feature
 
 ---
 
-## 🔄 MANDATORY WORKFLOW (added 2026-05-21)
+## 🔄 MANDATORY WORKFLOW (updated 2026-05-29)
 
-Harness planning is **3-skill composition**, not a single skill. Each phase is mandatory:
+Harness planning is a **3-skill workflow**: prep → plan → review. Each phase is mandatory.
 
 ```
-Phase 0: harness-discovery        ← audit what exists BEFORE estimating
-   ↓ produces docs/dogfood/discovery/<slug>.md
+Prerequisite: harness-prep        ← orchestrates discovery + brainstorming + (conditional) research
+   ↓ produces docs/dogfood/discovery/<slug>.md with up to 3 sections
 Phase 1-3: harness-planner        ← THIS SKILL — draft the plan
    ↓ produces docs/dogfood/<slug>-sprint-plan.md
 Phase 4: gauntlet-review          ← parallel specialist review BEFORE shipping
@@ -25,7 +25,7 @@ Phase 4: gauntlet-review          ← parallel specialist review BEFORE shipping
 [then] harness-coordinator        ← execute
 ```
 
-**Why mandatory**: the 2026-05-21 incident showed that planning *without* Phase 0 produces 5-10x over-estimates (PAM-AUTO-HARNESS estimated at 10-12h, actual was 3-4h; PAM-GITHUB-PUBLISH estimated at 31-45h, actual was 0-22h). Planning *without* Phase 4 ships plans with security blockers, performance bugs, and OUTCOMES-001-class test gaps. The 2026-05-21 gauntlet surfaced ~50-60 hours of additional work that would have shipped buggy.
+**Why mandatory**: the 2026-05-21 incident showed that planning without Phase 0 prep produces 5-10x over-estimates (PAM-AUTO-HARNESS estimated at 10-12h, actual was 3-4h; PAM-GITHUB-PUBLISH estimated at 31-45h, actual was 0-22h). The 2026-05-29 architectural correction extracted Phase 0 orchestration into `harness-prep` so the planner's job is unambiguous (draft, given prepared context). harness-prep itself composes harness-discovery + superpowers:brainstorming + harness-research (conditional) — see `harness-prep` SKILL.md for the sequencing. Planning without Phase 4 ships plans with security blockers, performance bugs, and OUTCOMES-001-class test gaps.
 
 **The composition is non-negotiable for multi-workstream plans (3+ workstreams or 16+ hours total).**
 
@@ -50,25 +50,23 @@ Use this skill when user requests:
 - ❌ Single-session features (<8 hours)
 - ❌ Simple bug fixes or minor enhancements
 - ❌ Already-started projects (use harness-coordinator instead)
-- ❌ Without first invoking harness-discovery (Phase 0)
+- ❌ Without first invoking harness-prep (Phase 0 orchestrator)
 
 ---
 
 ## 📖 HOW TO USE THIS SKILL
 
-### Phase 0 (MANDATORY) — Run harness-discovery FIRST
+### Prerequisite (MANDATORY) — Run harness-prep FIRST
 
-**Before drafting any plan, invoke discovery to audit existing infrastructure:**
+Before drafting, invoke `harness-prep` to orchestrate discovery + brainstorming + conditional research:
 
 ```typescript
-Skill({ skill: "harness-discovery" })
-// Dispatch 1-3 parallel Explore agents per the harness-discovery workflow
-// Write findings to docs/dogfood/discovery/<feature-slug>.md
+Skill({ skill: "harness-prep" })
 ```
 
-**Why this is mandatory**: planning without discovery produced a 5-10x over-estimate on the 2026-05-21 dogfooding sprint. The discovery cost was ~10 minutes; the avoided rework was ~50 hours. There is no reasonable case where skipping this saves time for a multi-workstream plan.
+harness-prep produces a fully-prepared `docs/dogfood/discovery/<slug>.md` with up to 3 sections (audit findings, alternatives considered, optional external research with decay metadata). harness-planner consumes this doc as input.
 
-If the work is genuinely greenfield (new file in new directory, no neighbors) you may skip Phase 0 — but document the decision in the plan's Appendix B with rationale.
+**Greenfield exception**: if the work is genuinely greenfield (new file in new directory, no neighbors) you may skip harness-prep — but document the decision in the plan's Appendix B with rationale.
 
 ### Phase 1-3 (this skill) — Draft the plan
 
@@ -86,7 +84,7 @@ Task({
   description: "Create harness project structure",
   prompt: `Create comprehensive harness project for: [FEATURE DESCRIPTION]
 
-Discovery findings (Phase 0 output — MANDATORY INPUT):
+Discovery doc (harness-prep output — MANDATORY INPUT):
 - Path: docs/dogfood/discovery/<feature-slug>.md
 - Key findings: [SUMMARIZE WHAT ALREADY EXISTS]
 - Corrected effort baseline: [FROM DISCOVERY DOC]
@@ -715,7 +713,7 @@ Both should return zero IDs. The harness-coordinator may refuse to dispatch feat
 
 **A successful harness project includes:**
 
-- [ ] **Phase 0 discovery completed**: `docs/dogfood/discovery/<slug>.md` exists with audit findings
+- [ ] **harness-prep completed**: `docs/dogfood/discovery/<slug>.md` exists with findings, alternatives, and optional external research
 - [ ] **Phase 4 gauntlet completed**: Plan's Appendix A contains 4-5 specialist findings, blockers addressed
 - [ ] **Clear phases**: 3-6 logical phases with realistic time estimates (informed by discovery)
 - [ ] **Granular features**: Each phase has 3-6 features (1-2 hours each)
@@ -741,13 +739,18 @@ Both should return zero IDs. The harness-coordinator may refuse to dispatch feat
 ## 🔗 RELATED SKILLS
 
 **Mandatory composition (in order)**:
-- **harness-discovery** (Phase 0): audit existing infrastructure BEFORE estimating effort
-- **harness-planner** (this skill, Phase 1-3): draft the plan informed by discovery
+- **harness-prep** (Prerequisite): orchestrates discovery + brainstorming + conditional external research; produces enriched discovery doc
+- **harness-planner** (this skill, Phase 1-3): draft the plan informed by the prep output
 - **gauntlet-review** (Phase 4): parallel specialist review BEFORE shipping plan
 
 **After plan is complete**:
-- **harness-coordinator**: Orchestrate multi-session implementation
+- **harness-coordinator**: orchestrate multi-session implementation
 - **harness-discipline**: TDD discipline enforcement for specialists
+
+**Skills composed by harness-prep** (you don't invoke these directly when prepping a harness — invoke harness-prep instead):
+- harness-discovery (internal audit, always)
+- superpowers:brainstorming (alternatives, always)
+- harness-research (external context, conditional)
 
 **For specific work types**:
 - **utt-worker**: Execute UTT tasks with harness integration
